@@ -17,7 +17,7 @@
 #    volumes:
 #      - /var/run/docker.sock:/var/run/docker.sock
 ---
-version: '2'
+version: '3.9'
 services:
   zookeeper-1:
     image: confluentinc/cp-zookeeper:latest
@@ -34,6 +34,13 @@ services:
     volumes:
       - ~/data/zookeeper-1/data:/data
       - ~/data/zookeeper-1/datalog:/datalog
+    healthcheck:
+      test: nc -z localhost 2181 || exit -1
+      start_period: 15s
+      interval: 5s
+      timeout: 10s
+      retries: 10
+    restart: always
 
   zookeeper-2:
     image: confluentinc/cp-zookeeper:latest
@@ -50,6 +57,13 @@ services:
     volumes:
       - ~/data/zookeeper-2/data:/data
       - ~/data/zookeeper-2/datalog:/datalog
+    healthcheck:
+      test: nc -z localhost 2181 || exit -1
+      start_period: 15s
+      interval: 5s
+      timeout: 10s
+      retries: 10
+    restart: always
 
   zookeeper-3:
     image: confluentinc/cp-zookeeper:latest
@@ -66,17 +80,27 @@ services:
     volumes:
       - ~/data/zookeeper-3/data:/data
       - ~/data/zookeeper-3/datalog:/datalog
+    healthcheck:
+      test: nc -z localhost 2181 || exit -1
+      start_period: 15s
+      interval: 5s
+      timeout: 10s
+      retries: 10
+    restart: always
 
   kafka-1:
     image: confluentinc/cp-kafka:latest
     hostname: kafka-1
     container_name: kafka-1
     depends_on:
-      - zookeeper-1
-      - zookeeper-2
-      - zookeeper-3
+      zookeeper-1:
+        condition: service_healthy
+      zookeeper-2:
+        condition: service_healthy
+      zookeeper-3:
+        condition: service_healthy
     ports:
-      - 29092:29092
+      - "29092:29092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181
@@ -87,15 +111,25 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
     volumes:
       - ~/data/kafka-1/data:/tmp/kafka-logs
+    healthcheck:
+      test: nc -z localhost 9092 || exit -1
+      start_period: 15s
+      interval: 5s
+      timeout: 10s
+      retries: 10
+    restart: always
 
   kafka-2:
     image: confluentinc/cp-kafka:latest
     hostname: kafka-2
     container_name: kafka-2
     depends_on:
-      - zookeeper-1
-      - zookeeper-2
-      - zookeeper-3
+      zookeeper-1:
+        condition: service_healthy
+      zookeeper-2:
+        condition: service_healthy
+      zookeeper-3:
+        condition: service_healthy
     ports:
       - "39092:39092"
     environment:
@@ -108,15 +142,25 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
     volumes:
       - ~/data/kafka-2/data:/tmp/kafka-logs
+    healthcheck:
+      test: nc -z localhost 9092 || exit -1
+      start_period: 15s
+      interval: 5s
+      timeout: 10s
+      retries: 10
+    restart: always
 
   kafka-3:
     image: confluentinc/cp-kafka:latest
     hostname: kafka-3
     container_name: kafka-3
     depends_on:
-      - zookeeper-1
-      - zookeeper-2
-      - zookeeper-3
+      zookeeper-1:
+        condition: service_healthy
+      zookeeper-2:
+        condition: service_healthy
+      zookeeper-3:
+        condition: service_healthy
     ports:
       - "49092:49092"
     environment:
@@ -129,9 +173,37 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
     volumes:
       - ~/data/kafka-3/data:/tmp/kafka-logs
+    healthcheck:
+      test: nc -z localhost 9092 || exit -1
+      start_period: 15s
+      interval: 5s
+      timeout: 10s
+      retries: 10
+    restart: always
+
+#  schema-registry:
+#    image: confluentinc/cp-schema-registry:latest
+#    container_name: schema-registry
+#    depends_on:
+#      kafka-1:
+#        condition: service_healthy
+#      kafka-2:
+#        condition: service_healthy
+#      kafka-3:
+#        condition: service_healthy
+#    ports:
+#      - "8081:8081"
+#    environment:
+#      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+#      SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: 'kafka-1:9092,kafka-2:9092,kafka-3:9092'
+#      SCHEMA_REGISTRY_LISTENERS: http://schema-registry:8081
+#      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka-2:9092,PLAINTEXT_INTERNAL://localhost:29092
+#      SCHEMA_REGISTRY_DEBUG: 'true'
+#    restart: always
 
 #  kafdrop:
 #    image: obsidiandynamics/kafdrop
+#    container_name: kafdrop
 #    restart: "no"
 #    ports:
 #      - "9000:9000"
@@ -139,22 +211,62 @@ services:
 #      KAFKA_BROKER_CONNECT: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
 #      JVM_OPTS: "-Xms32M -Xmx64M"
 #    depends_on:
-#      - kafka-1
-#      - kafka-2
-#      - kafka-3
+#      kafka-1:
+#        condition: service_healthy
+#      kafka-2:
+#        condition: service_healthy
+#      kafka-3:
+#        condition: service_healthy
+#    healthcheck:
+#      test: nc -z localhost 9000 || exit -1
+#      start_period: 15s
+#      interval: 5s
+#      timeout: 10s
+#      retries: 10
 
-#  kafka-ui:
-#    image: provectuslabs/kafka-ui
-#    container_name: kafka-ui
-#    ports:
-#      - "8989:8080"
-#    restart: always
-#    environment:
-#      - KAFKA_CLUSTERS_0_NAME=local
-#      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka-1:9092,kafka-2:9092,kafka-3:9092
-#      - KAFKA_CLUSTERS_0_ZOOKEEPER=zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181
+  kafka-ui:
+    image: provectuslabs/kafka-ui
+    hostname: kafka-ui
+    container_name: kafka-ui
+    ports:
+      - "8989:8080"
+    restart: always
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=kafka-cluster-demo
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka-1:9092,kafka-2:9092,kafka-3:9092
+      - KAFKA_CLUSTERS_0_ZOOKEEPER=zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181
+    depends_on:
+      kafka-1:
+        condition: service_healthy
+      kafka-2:
+        condition: service_healthy
+      kafka-3:
+        condition: service_healthy
+      zookeeper-1:
+        condition: service_healthy
+      zookeeper-2:
+        condition: service_healthy
+      zookeeper-3:
+        condition: service_healthy
+
+#  control-center:
+#    image: confluentinc/cp-enterprise-control-center
+#    container_name: control-center
 #    depends_on:
-#      - kafka-1
-#      - kafka-2
-#      - kafka-3
+#      kafka-1:
+#        condition: service_healthy
+#      kafka-2:
+#        condition: service_healthy
+#      kafka-3:
+#        condition: service_healthy
+#    ports:
+#      - "9021:9021"
+#    environment:
+#      CONTROL_CENTER_BOOTSTRAP_SERVERS: 'kafka-1:9092,kafka-2:9092,kafka-3:9092'
+#      CONTROL_CENTER_REPLICATION_FACTOR: 1
+#      CONTROL_CENTER_INTERNAL_TOPICS_PARTITIONS: 1
+#      CONTROL_CENTER_MONITORING_INTERCEPTOR_TOPIC_PARTITIONS: 1
+#      CONFLUENT_METRICS_TOPIC_REPLICATION: 1
+#      PORT: 9021
+#    restart: always
 ...
